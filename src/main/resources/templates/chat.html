@@ -204,6 +204,12 @@
                 <span class="material-symbols-outlined">history</span>
             </md-icon-button>
         </a>
+        <md-icon-button id="export-button" title="Export to Markdown">
+            <span class="material-symbols-outlined">download</span>
+        </md-icon-button>
+        <md-icon-button id="settings-button" title="Settings">
+            <span class="material-symbols-outlined">settings</span>
+        </md-icon-button>
     </header>
 
     <div class="model-selector">
@@ -277,13 +283,34 @@
         </form>
     </div>
 
+    <md-dialog id="settings-dialog">
+        <div slot="headline">
+            Paramètres
+        </div>
+        <form slot="content" id="settings-form" method="dialog">
+            <p>D'autres paramètres seront bientôt disponibles ici.</p>
+        </form>
+        <div slot="actions">
+            <md-text-button form="settings-form" value="close">Fermer</md-text-button>
+        </div>
+    </md-dialog>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // Element References
             const form = document.getElementById('chat-form');
             const promptInput = form.querySelector('md-outlined-text-field');
             const submitButton = form.querySelector('md-filled-button');
-            let currentPrompt = '';
+            const settingsButton = document.getElementById('settings-button');
+            const settingsDialog = document.getElementById('settings-dialog');
+            const exportButton = document.getElementById('export-button');
 
+            // State
+            let currentPrompt = '';
+            let lastResponses = {}; // To store raw markdown responses for export
+            let ws;
+
+            // Mappings
             const modelMap = {
                 'GPT-4': 'openai',
                 'Claude 3 Sonnet': 'anthropic',
@@ -291,8 +318,7 @@
             };
             const allModelIds = Object.keys(modelMap).map(key => modelMap[key]);
 
-            let ws;
-
+            // -- WebSocket Logic --
             function connect() {
                 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws/chat`);
@@ -316,6 +342,7 @@
                         progressEl.style.display = 'none';
 
                         if (llmResponse.success) {
+                            lastResponses[modelId] = llmResponse.content; // Store raw response
                             typeOutResponse(responseEl, llmResponse.content, () => {
                                 statusEl.label = 'Complete';
                                 cardEl.style.borderColor = 'var(--md-sys-color-primary)';
@@ -332,7 +359,7 @@
                 ws.onclose = () => {
                     console.log('WebSocket connection closed. Reconnecting...');
                     submitButton.disabled = true;
-                    setTimeout(connect, 1000); // Attempt to reconnect after 1 second
+                    setTimeout(connect, 1000);
                 };
 
                 ws.onerror = (error) => {
@@ -341,17 +368,18 @@
                 };
             }
 
+            // -- UI Logic --
             function typeOutResponse(element, markdownText, onComplete) {
                 let i = 0;
-                const speed = 10; // ms per character
+                const speed = 10;
                 let content = '';
-                element.innerHTML = ''; // Clear previous content
+                element.innerHTML = '';
 
                 function type() {
                     if (i < markdownText.length) {
                         content += markdownText.charAt(i);
                         if (i % 5 === 0 || markdownText.charAt(i) === '\n') {
-                            const dirtyHtml = marked.parse(content + '<span class="typing-cursor">▌</span>'); // Add a cursor
+                            const dirtyHtml = marked.parse(content + '<span class="typing-cursor">▌</span>');
                             element.innerHTML = DOMPurify.sanitize(dirtyHtml);
                         }
                         i++;
@@ -359,26 +387,50 @@
                     } else {
                         const dirtyHtml = marked.parse(content);
                         element.innerHTML = DOMPurify.sanitize(dirtyHtml);
-                        if (onComplete) {
-                            onComplete();
-                        }
+                        if (onComplete) onComplete();
                     }
                 }
                 type();
             }
 
-            connect();
+            function exportToMarkdown() {
+                if (Object.keys(lastResponses).length === 0) {
+                    alert("Please generate a response first.");
+                    return;
+                }
+                let markdownString = `# Chat Comparison\n\n**Prompt:**\n> ${currentPrompt}\n\n---\n\n`;
+                for (const modelId in lastResponses) {
+                    if (Object.hasOwnProperty.call(lastResponses, modelId)) {
+                        const modelName = Object.keys(modelMap).find(key => modelMap[key] === modelId);
+                        markdownString += `## ${modelName}\n${lastResponses[modelId]}\n\n---\n\n`;
+                    }
+                }
+                const blob = new Blob([markdownString], { type: 'text/markdown' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'chat-comparison.md';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            // -- Event Listeners --
+            settingsButton.addEventListener('click', () => settingsDialog.show());
+            exportButton.addEventListener('click', exportToMarkdown);
 
             form.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const prompt = promptInput.value.trim();
-                if (!prompt || ws.readyState !== WebSocket.OPEN) return;
+                if (!prompt || !ws || ws.readyState !== WebSocket.OPEN) return;
 
                 currentPrompt = prompt;
+                lastResponses = {}; // Reset for new prompt
                 const selectedChips = document.querySelectorAll('.model-selector md-filter-chip[selected]');
                 const selectedModels = Array.from(selectedChips).map(chip => chip.dataset.modelId);
 
-                if (selectedModels.length === 0) { return; }
+                if (selectedModels.length === 0) return;
 
                 allModelIds.forEach(id => {
                     const card = document.getElementById(`card-${id}`);
@@ -395,13 +447,12 @@
                     }
                 });
 
-                const request = { prompt, models: selectedModels };
-                ws.send(JSON.stringify(request));
+                ws.send(JSON.stringify({ prompt, models: selectedModels }));
             });
 
             allModelIds.forEach(id => {
                 document.getElementById(`retry-${id}`).addEventListener('click', () => {
-                     if (!currentPrompt || ws.readyState !== WebSocket.OPEN) return;
+                    if (!currentPrompt || !ws || ws.readyState !== WebSocket.OPEN) return;
 
                     const card = document.getElementById(`card-${id}`);
                     card.classList.remove('anim-fade-in-up');
@@ -412,10 +463,12 @@
                     document.getElementById(`progress-${id}`).style.display = 'block';
                     document.getElementById(`retry-${id}`).style.display = 'none';
 
-                     const request = { prompt: currentPrompt, models: [id] };
-                     ws.send(JSON.stringify(request));
+                    ws.send(JSON.stringify({ prompt: currentPrompt, models: [id] }));
                 });
             });
+
+            // -- Initial Connection --
+            connect();
         });
     </script>
 
