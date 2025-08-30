@@ -8,8 +8,12 @@
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" rel="stylesheet">
+
+    <!-- Markdown & Sanitizer -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/lib/marked.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.umd.js"></script>
 
     <!-- Material Web Components -->
     <script type="importmap">
@@ -89,6 +93,11 @@
             font-size: 1.2rem;
             margin: 0;
         }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
         .response-content {
             flex-grow: 1;
             overflow-y: auto;
@@ -112,6 +121,24 @@
             margin-bottom: 8px;
             display: none; /* Hidden by default */
         }
+        .response-content pre {
+            background-color: var(--md-sys-color-surface-container);
+            border-radius: 8px;
+            padding: 12px;
+            overflow-x: auto;
+            white-space: pre;
+        }
+        .response-content code {
+            font-family: 'Roboto Mono', monospace;
+            background-color: var(--md-sys-color-surface-container-highest);
+            border-radius: 4px;
+            padding: 2px 4px;
+        }
+        .response-content pre code {
+            background-color: transparent;
+            padding: 0;
+            border-radius: 0;
+        }
     </style>
 </head>
 <body class="md-body-medium">
@@ -132,9 +159,14 @@
         <md-outlined-card class="response-card" id="card-openai">
             <div class="response-card-header">
                 <h2 class="md-typescale-title-medium">GPT-4</h2>
-                <md-chip-set>
-                    <md-assist-chip id="status-openai" label="Idle"></md-assist-chip>
-                </md-chip-set>
+                <div class="header-actions">
+                    <md-icon-button id="retry-openai" style="display: none;" title="Retry">
+                        <span class="material-symbols-outlined">replay</span>
+                    </md-icon-button>
+                    <md-chip-set>
+                        <md-assist-chip id="status-openai" label="Idle"></md-assist-chip>
+                    </md-chip-set>
+                </div>
             </div>
             <md-linear-progress indeterminate id="progress-openai"></md-linear-progress>
             <div class="response-content" id="response-openai"></div>
@@ -144,9 +176,14 @@
         <md-outlined-card class="response-card" id="card-anthropic">
             <div class="response-card-header">
                 <h2 class="md-typescale-title-medium">Claude 3 Sonnet</h2>
-                <md-chip-set>
-                    <md-assist-chip id="status-anthropic" label="Idle"></md-assist-chip>
-                </md-chip-set>
+                <div class="header-actions">
+                    <md-icon-button id="retry-anthropic" style="display: none;" title="Retry">
+                        <span class="material-symbols-outlined">replay</span>
+                    </md-icon-button>
+                    <md-chip-set>
+                        <md-assist-chip id="status-anthropic" label="Idle"></md-assist-chip>
+                    </md-chip-set>
+                </div>
             </div>
             <md-linear-progress indeterminate id="progress-anthropic"></md-linear-progress>
             <div class="response-content" id="response-anthropic"></div>
@@ -156,9 +193,14 @@
         <md-outlined-card class="response-card" id="card-gemini">
             <div class="response-card-header">
                 <h2 class="md-typescale-title-medium">Gemini Pro</h2>
-                <md-chip-set>
-                    <md-assist-chip id="status-gemini" label="Idle"></md-assist-chip>
-                </md-chip-set>
+                <div class="header-actions">
+                    <md-icon-button id="retry-gemini" style="display: none;" title="Retry">
+                        <span class="material-symbols-outlined">replay</span>
+                    </md-icon-button>
+                    <md-chip-set>
+                        <md-assist-chip id="status-gemini" label="Idle"></md-assist-chip>
+                    </md-chip-set>
+                </div>
             </div>
             <md-linear-progress indeterminate id="progress-gemini"></md-linear-progress>
             <div class="response-content" id="response-gemini"></div>
@@ -184,6 +226,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             const form = document.getElementById('chat-form');
             const promptInput = form.querySelector('md-outlined-text-field');
+            let currentPrompt = ''; // To store the prompt for retries
 
             const modelMap = {
                 'GPT-4': 'openai',
@@ -197,6 +240,7 @@
                 e.preventDefault();
                 const prompt = promptInput.value.trim();
                 if (!prompt) return;
+                currentPrompt = prompt; // Store the prompt for retries
 
                 // Reset UI for all models
                 allModelIds.forEach(id => {
@@ -204,6 +248,7 @@
                     document.getElementById(`status-${id}`).label = 'Typing...';
                     document.getElementById(`progress-${id}`).style.display = 'block';
                     document.getElementById(`card-${id}`).style.borderColor = '';
+                    document.getElementById(`retry-${id}`).style.display = 'none';
                 });
 
 
@@ -237,13 +282,16 @@
                             const cardEl = document.getElementById(`card-${modelId}`);
 
                             if (llmResponse.success) {
-                                responseEl.textContent = llmResponse.content;
+                                // Use marked.js to parse markdown and DOMPurify to sanitize it
+                                const dirtyHtml = marked.parse(llmResponse.content);
+                                responseEl.innerHTML = DOMPurify.sanitize(dirtyHtml);
                                 statusEl.label = 'Complete';
                                 cardEl.style.borderColor = 'var(--md-sys-color-primary)';
                             } else {
-                                responseEl.textContent = `Error: ${llmResponse.errorMessage}`;
+                                responseEl.innerHTML = `Error: ${llmResponse.errorMessage}`;
                                 statusEl.label = 'Error';
                                 cardEl.style.borderColor = 'var(--md-sys-color-error)';
+                                document.getElementById(`retry-${modelId}`).style.display = 'block';
                             }
                         }
                     });
@@ -257,6 +305,68 @@
                         document.getElementById(`response-${id}`).textContent = 'Failed to get a response from the server.';
                     });
                 }
+            });
+
+            async function retryQuery(modelId) {
+                if (!currentPrompt) return;
+
+                // Reset UI for the specific card
+                const responseEl = document.getElementById(`response-${modelId}`);
+                const statusEl = document.getElementById(`status-${modelId}`);
+                const progressEl = document.getElementById(`progress-${modelId}`);
+                const cardEl = document.getElementById(`card-${modelId}`);
+                const retryBtn = document.getElementById(`retry-${modelId}`);
+
+                responseEl.innerHTML = '';
+                statusEl.label = 'Retrying...';
+                progressEl.style.display = 'block';
+                cardEl.style.borderColor = '';
+                retryBtn.style.display = 'none';
+
+                try {
+                    const response = await fetch('/api/chat/compare', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({ prompt: currentPrompt, models: [modelId] })
+                    });
+
+                    progressEl.style.display = 'none';
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+
+                    // The backend returns all models even if we ask for one, find the correct one
+                    const llmResponse = result.responses.find(r => modelMap[r.modelName] === modelId);
+
+                    if (llmResponse && llmResponse.success) {
+                        const dirtyHtml = marked.parse(llmResponse.content);
+                        responseEl.innerHTML = DOMPurify.sanitize(dirtyHtml);
+                        statusEl.label = 'Complete';
+                        cardEl.style.borderColor = 'var(--md-sys-color-primary)';
+                    } else {
+                        throw new Error(llmResponse ? llmResponse.errorMessage : 'Invalid response from server');
+                    }
+
+                } catch (error) {
+                    console.error(`Error retrying for ${modelId}:`, error);
+                    progressEl.style.display = 'none';
+                    statusEl.label = 'Error';
+                    cardEl.style.borderColor = 'var(--md-sys-color-error)';
+                    responseEl.innerHTML = `Failed to get a response: ${error.message}`;
+                    retryBtn.style.display = 'block';
+                }
+            }
+
+            allModelIds.forEach(id => {
+                document.getElementById(`retry-${id}`).addEventListener('click', () => {
+                    retryQuery(id);
+                });
             });
         });
     </script>
