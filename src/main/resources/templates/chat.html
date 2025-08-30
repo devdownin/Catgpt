@@ -161,6 +161,36 @@
                 padding: 12px;
             }
         }
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .anim-fade-in-up {
+            animation: fadeInUp 0.5s ease-out forwards;
+        }
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0;
+            }
+        }
+        .typing-cursor {
+            animation: pulse 1s infinite;
+        }
+        md-filter-chip:hover {
+            background-color: var(--md-sys-color-secondary-container);
+        }
+        md-filled-button:hover {
+            box-shadow: var(--md-elevation-1);
+        }
     </style>
 </head>
 <body class="md-body-medium">
@@ -320,16 +350,13 @@
                 function type() {
                     if (i < markdownText.length) {
                         content += markdownText.charAt(i);
-                        // Avoid parsing markdown on every single character for performance.
-                        // Parse every few characters or when a newline is added.
                         if (i % 5 === 0 || markdownText.charAt(i) === '\n') {
-                            const dirtyHtml = marked.parse(content + '▌'); // Add a cursor
+                            const dirtyHtml = marked.parse(content + '<span class="typing-cursor">▌</span>'); // Add a cursor
                             element.innerHTML = DOMPurify.sanitize(dirtyHtml);
                         }
                         i++;
                         setTimeout(type, speed);
                     } else {
-                        // Final parse without cursor
                         const dirtyHtml = marked.parse(content);
                         element.innerHTML = DOMPurify.sanitize(dirtyHtml);
                         if (onComplete) {
@@ -340,7 +367,7 @@
                 type();
             }
 
-            connect(); // Initial connection
+            connect();
 
             form.addEventListener('submit', (e) => {
                 e.preventDefault();
@@ -353,31 +380,33 @@
 
                 if (selectedModels.length === 0) { return; }
 
-                // Reset UI for selected models
-                selectedModels.forEach(id => {
-                    document.getElementById(`card-${id}`).style.display = 'flex';
-                    document.getElementById(`response-${id}`).innerHTML = '';
-                    document.getElementById(`status-${id}`).label = 'Typing...';
-                    document.getElementById(`progress-${id}`).style.display = 'block';
-                    document.getElementById(`retry-${id}`).style.display = 'none';
-                });
-                // Hide unselected models
-                allModelIds.filter(id => !selectedModels.includes(id)).forEach(id => {
-                    document.getElementById(`card-${id}`).style.display = 'none';
+                allModelIds.forEach(id => {
+                    const card = document.getElementById(`card-${id}`);
+                    card.classList.remove('anim-fade-in-up');
+                    if (selectedModels.includes(id)) {
+                        card.style.display = 'flex';
+                        setTimeout(() => card.classList.add('anim-fade-in-up'), 10);
+                        document.getElementById(`response-${id}`).innerHTML = '';
+                        document.getElementById(`status-${id}`).label = 'Typing...';
+                        document.getElementById(`progress-${id}`).style.display = 'block';
+                        document.getElementById(`retry-${id}`).style.display = 'none';
+                    } else {
+                        card.style.display = 'none';
+                    }
                 });
 
                 const request = { prompt, models: selectedModels };
                 ws.send(JSON.stringify(request));
             });
 
-            // Note: Retry logic needs to be adapted for WebSockets.
-            // For now, it will re-trigger the main prompt submission for the specific model.
             allModelIds.forEach(id => {
                 document.getElementById(`retry-${id}`).addEventListener('click', () => {
                      if (!currentPrompt || ws.readyState !== WebSocket.OPEN) return;
 
-                     // Reset UI for the specific card
-                    document.getElementById(`card-${id}`).style.display = 'flex';
+                    const card = document.getElementById(`card-${id}`);
+                    card.classList.remove('anim-fade-in-up');
+                    card.style.display = 'flex';
+                    setTimeout(() => card.classList.add('anim-fade-in-up'), 10);
                     document.getElementById(`response-${id}`).innerHTML = '';
                     document.getElementById(`status-${id}`).label = 'Retrying...';
                     document.getElementById(`progress-${id}`).style.display = 'block';
