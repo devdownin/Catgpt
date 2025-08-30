@@ -2,6 +2,7 @@
 /app/src/main/java/com/app/multillm/MultiLlmApplication.java
 /app/src/main/java/com/app/multillm/config/WebSocketConfig.java
 /app/src/main/java/com/app/multillm/service/OpenAIService.java
+/app/src/main/java/com/app/multillm/controller/HistoryApiController.java
 /app/src/main/java/com/app/multillm/config/WebConfig.java
 /app/src/main/java/com/app/multillm/config/LLMConfig.java
 /app/src/main/java/com/app/multillm/model/Conversation.java

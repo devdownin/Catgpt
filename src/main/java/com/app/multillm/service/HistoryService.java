@@ -25,4 +25,8 @@ public class HistoryService {
     public Optional<Conversation> getConversationById(String id) {
         return conversationRepository.findById(id);
     }
+
+    public void deleteConversation(String id) {
+        conversationRepository.deleteById(id);
+    }
 }

@@ -3,6 +3,7 @@ com/app/multillm/config/WebSocketConfig.class
 com/app/multillm/config/WebConfig.class
 com/app/multillm/dto/ComparisonResponse.class
 com/app/multillm/config/LLMProviderProperties.class
+com/app/multillm/controller/HistoryApiController.class
 com/app/multillm/service/AnthropicService.class
 com/app/multillm/service/OpenAIService.class
 com/app/multillm/controller/ViewController.class

@@ -52,6 +52,25 @@
             --md-sys-color-outline-variant: #c8c5d0;
             --md-sys-color-error: #ba1a1a;
         }
+        body.dark-theme {
+            --md-sys-color-primary: #a0c9ff;
+            --md-sys-color-on-primary: #003258;
+            --md-sys-color-primary-container: #00497d;
+            --md-sys-color-on-primary-container: #d2e4ff;
+            --md-sys-color-secondary: #bac6d8;
+            --md-sys-color-on-secondary: #283141;
+            --md-sys-color-secondary-container: #3e4758;
+            --md-sys-color-on-secondary-container: #d6e2f4;
+            --md-sys-color-background: #1a1c1e;
+            --md-sys-color-on-background: #e3e2e6;
+            --md-sys-color-surface: #1a1c1e;
+            --md-sys-color-on-surface: #e3e2e6;
+            --md-sys-color-surface-container-low: #1e2022;
+            --md-sys-color-surface-container: #222426;
+            --md-sys-color-surface-container-highest: #37393b;
+            --md-sys-color-outline-variant: #43474e;
+            --md-sys-color-error: #ffb4ab;
+        }
         body {
             font-family: 'Roboto', sans-serif;
             background-color: var(--md-sys-color-background);
@@ -147,6 +166,12 @@
             gap: 16px;
             padding: 16px 24px;
             border-bottom: 1px solid var(--md-sys-color-outline-variant);
+        }
+        .setting-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
         }
 
         @media (max-width: 768px) {
@@ -288,7 +313,12 @@
             Paramètres
         </div>
         <form slot="content" id="settings-form" method="dialog">
-            <p>D'autres paramètres seront bientôt disponibles ici.</p>
+            <div class="setting-row">
+                <span class="material-symbols-outlined">dark_mode</span>
+                <label for="dark-theme-switch">Thème Sombre</label>
+                <div style="flex-grow: 1;"></div>
+                <md-switch id="dark-theme-switch"></md-switch>
+            </div>
         </form>
         <div slot="actions">
             <md-text-button form="settings-form" value="close">Fermer</md-text-button>
@@ -304,6 +334,7 @@
             const settingsButton = document.getElementById('settings-button');
             const settingsDialog = document.getElementById('settings-dialog');
             const exportButton = document.getElementById('export-button');
+            const themeSwitch = document.getElementById('dark-theme-switch');
 
             // State
             let currentPrompt = '';
@@ -416,9 +447,24 @@
                 URL.revokeObjectURL(url);
             }
 
-            // -- Event Listeners --
+            // -- Event Listeners & Initializers --
             settingsButton.addEventListener('click', () => settingsDialog.show());
             exportButton.addEventListener('click', exportToMarkdown);
+
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark-theme');
+                themeSwitch.selected = true;
+            }
+            themeSwitch.addEventListener('click', () => {
+                if (themeSwitch.selected) {
+                    document.body.classList.add('dark-theme');
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    document.body.classList.remove('dark-theme');
+                    localStorage.setItem('theme', 'light');
+                }
+            });
 
             form.addEventListener('submit', (e) => {
                 e.preventDefault();

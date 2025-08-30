@@ -75,6 +75,14 @@
         .response-map b {
             color: var(--md-sys-color-on-surface);
         }
+        body.dark-theme {
+            --md-sys-color-background: #1a1c1e;
+            --md-sys-color-on-background: #e3e2e6;
+            --md-sys-color-surface: #1a1c1e;
+            --md-sys-color-surface-container-low: #1e2022;
+            --md-sys-color-outline-variant: #43474e;
+            --md-sys-color-on-surface-variant: #46464f;
+        }
     </style>
 </head>
 <body class="md-body-medium">
@@ -95,22 +103,61 @@
                 </md-list-item>
             </div>
             <th:block th:each="conv, iterStat : ${conversations}">
-                <md-list-item>
-                    <span class="material-symbols-outlined" slot="start">question_answer</span>
-                    <div slot="headline" th:text="${conv.userQuery}">User Query</div>
-                    <div slot="supporting-text" th:text="'Asked on: ' + ${#temporals.format(conv.timestamp, 'dd MMM yyyy HH:mm')}">Timestamp</div>
-                    <div slot="trailing-supporting-text" th:text="${#maps.size(conv.llmResponses)} + ' responses'">Responses</div>
-                </md-list-item>
-                <div class="response-map">
-                    <div th:each="entry : ${conv.llmResponses}">
-                        <b th:text="${entry.key} + ': '"></b>
-                        <span th:text="${#strings.abbreviate(entry.value, 150)}"></span>
+                <div th:id="'conv-item-' + ${conv.id}">
+                    <md-list-item>
+                        <span class="material-symbols-outlined" slot="start">question_answer</span>
+                        <div slot="headline" th:text="${conv.userQuery}">User Query</div>
+                        <div slot="supporting-text" th:text="'Asked on: ' + ${#temporals.format(conv.timestamp, 'dd MMM yyyy HH:mm')}">Timestamp</div>
+                        <md-icon-button class="delete-button" th:data-id="${conv.id}" slot="end" title="Delete">
+                            <span class="material-symbols-outlined">delete</span>
+                        </md-icon-button>
+                    </md-list-item>
+                    <div class="response-map">
+                        <div th:each="entry : ${conv.llmResponses}">
+                            <b th:text="${entry.key} + ': '"></b>
+                            <span th:text="${#strings.abbreviate(entry.value, 120)}"></span>
+                        </div>
                     </div>
+                    <md-divider th:if="${!iterStat.last}"></md-divider>
                 </div>
-                <md-divider th:if="${!iterStat.last}"></md-divider>
             </th:block>
         </md-list>
     </main>
 
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const deleteButtons = document.querySelectorAll('.delete-button');
+            deleteButtons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const conversationId = button.dataset.id;
+
+                    if (confirm('Are you sure you want to delete this conversation?')) {
+                        fetch(`/api/history/${conversationId}`, {
+                            method: 'DELETE'
+                        })
+                        .then(response => {
+                            if (response.ok) {
+                                document.getElementById(`conv-item-${conversationId}`).remove();
+                            } else {
+                                alert('Failed to delete conversation.');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('Failed to delete conversation.');
+                        });
+                    }
+                });
+            });
+        });
+    </script>
+    <script>
+        // Apply theme on load
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-theme');
+        }
+    </script>
 </body>
 </html>
