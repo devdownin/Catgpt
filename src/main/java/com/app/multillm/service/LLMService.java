@@ -27,14 +27,22 @@ public class LLMService {
         List<CompletableFuture<LLMResponse>> futures = new ArrayList<>();
 
         List<String> models = request.getModels();
-        if (models == null || models.isEmpty() || models.contains("openai")) {
+
+        if (models == null || models.isEmpty()) {
+            // Default to all models if none are specified
             futures.add(openAIService.query(request.getPrompt()));
-        }
-        if (models == null || models.isEmpty() || models.contains("anthropic")) {
             futures.add(anthropicService.query(request.getPrompt()));
-        }
-        if (models == null || models.isEmpty() || models.contains("gemini")) {
             futures.add(geminiService.query(request.getPrompt()));
+        } else {
+            if (models.contains("openai")) {
+                futures.add(openAIService.query(request.getPrompt()));
+            }
+            if (models.contains("anthropic")) {
+                futures.add(anthropicService.query(request.getPrompt()));
+            }
+            if (models.contains("gemini")) {
+                futures.add(geminiService.query(request.getPrompt()));
+            }
         }
 
 
