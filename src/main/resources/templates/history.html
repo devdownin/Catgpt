@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversation History</title>
+
+    <!-- Fonts and Material Web Components -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" rel="stylesheet">
+    <script type="importmap">
+    { "imports": { "@material/web/": "https://esm.run/@material/web/" } }
+    </script>
+    <script type="module">
+      import '@material/web/all.js';
+      import {styles as typescaleStyles} from '@material/web/typography/md-typescale-styles.js';
+      import {styles as themeStyles} from '@material/web/theme/theme-styles.js';
+
+      document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
+      document.adoptedStyleSheets.push(themeStyles.styleSheet);
+    </script>
+
+    <style>
+        :root {
+            --md-sys-color-background: #fefbff;
+            --md-sys-color-on-background: #1b1b21;
+            --md-sys-color-surface: #fefbff;
+            --md-sys-color-surface-container-low: #f4f2fa;
+            --md-sys-color-outline-variant: #c8c5d0;
+            --md-sys-color-on-surface-variant: #46464f;
+        }
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--md-sys-color-background);
+            color: var(--md-sys-color-on-background);
+            margin: 0;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            padding: 12px 24px;
+            background-color: var(--md-sys-color-surface-container-low);
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+        }
+        .header h1 {
+             font-size: 1.4rem;
+             font-weight: 500;
+             margin-left: 16px;
+        }
+        .header a {
+            color: var(--md-sys-color-on-surface);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+        }
+        .container {
+            padding: 24px;
+        }
+        md-list {
+            background-color: var(--md-sys-color-surface);
+            border-radius: 12px;
+            border: 1px solid var(--md-sys-color-outline-variant);
+        }
+        md-list-item {
+            --md-list-item-bottom-space: 12px;
+            --md-list-item-top-space: 12px;
+        }
+        .response-map {
+            padding: 0 16px 12px 72px;
+            font-size: 0.9em;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+        .response-map b {
+            color: var(--md-sys-color-on-surface);
+        }
+    </style>
+</head>
+<body class="md-body-medium">
+
+    <header class="header">
+        <a href="/" title="Back to Chat">
+            <md-icon-button><span class="material-symbols-outlined">arrow_back</span></md-icon-button>
+        </a>
+        <h1 class="md-typescale-title-large">Conversation History</h1>
+    </header>
+
+    <main class="container">
+        <md-list>
+            <div th:if="${#lists.isEmpty(conversations)}">
+                <md-list-item>
+                    <div slot="headline">No conversations yet.</div>
+                    <div slot="supporting-text">Go back to the chat to start a new one.</div>
+                </md-list-item>
+            </div>
+            <th:block th:each="conv, iterStat : ${conversations}">
+                <md-list-item>
+                    <span class="material-symbols-outlined" slot="start">question_answer</span>
+                    <div slot="headline" th:text="${conv.userQuery}">User Query</div>
+                    <div slot="supporting-text" th:text="'Asked on: ' + ${#temporals.format(conv.timestamp, 'dd MMM yyyy HH:mm')}">Timestamp</div>
+                    <div slot="trailing-supporting-text" th:text="${#maps.size(conv.llmResponses)} + ' responses'">Responses</div>
+                </md-list-item>
+                <div class="response-map">
+                    <div th:each="entry : ${conv.llmResponses}">
+                        <b th:text="${entry.key} + ': '"></b>
+                        <span th:text="${#strings.abbreviate(entry.value, 150)}"></span>
+                    </div>
+                </div>
+                <md-divider th:if="${!iterStat.last}"></md-divider>
+            </th:block>
+        </md-list>
+    </main>
+
+</body>
+</html>

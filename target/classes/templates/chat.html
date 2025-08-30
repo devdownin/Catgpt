@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-LLM Chat</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" rel="stylesheet">
+
+    <!-- Markdown & Sanitizer -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/lib/marked.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.umd.js"></script>
+
+    <!-- Material Web Components -->
+    <script type="importmap">
+    {
+      "imports": {
+        "@material/web/": "https://esm.run/@material/web/"
+      }
+    }
+    </script>
+    <script type="module">
+      import '@material/web/all.js';
+      import {styles as typescaleStyles} from '@material/web/typography/md-typescale-styles.js';
+      import {styles as themeStyles} from '@material/web/theme/theme-styles.js';
+
+      document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
+      document.adoptedStyleSheets.push(themeStyles.styleSheet);
+    </script>
+
+    <style>
+        :root {
+            --md-sys-color-primary: #4a55a2;
+            --md-sys-color-on-primary: #ffffff;
+            --md-sys-color-primary-container: #e0e0ff;
+            --md-sys-color-on-primary-container: #000c61;
+            --md-sys-color-secondary: #5b5d72;
+            --md-sys-color-on-secondary: #ffffff;
+            --md-sys-color-secondary-container: #e0e0f9;
+            --md-sys-color-on-secondary-container: #181a2c;
+            --md-sys-color-background: #fefbff;
+            --md-sys-color-on-background: #1b1b21;
+            --md-sys-color-surface: #fefbff;
+            --md-sys-color-on-surface: #1b1b21;
+            --md-sys-color-surface-container-low: #f4f2fa;
+            --md-sys-color-surface-container: #eeedf4;
+            --md-sys-color-surface-container-highest: #e6e0e9;
+            --md-sys-color-outline-variant: #c8c5d0;
+            --md-sys-color-error: #ba1a1a;
+        }
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--md-sys-color-background);
+            color: var(--md-sys-color-on-background);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            padding: 12px 24px;
+            background-color: var(--md-sys-color-surface-container-low);
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+        }
+        .header h1 {
+             font-size: 1.4rem;
+             font-weight: 500;
+             margin-left: 16px;
+        }
+        .main-content {
+            flex-grow: 1;
+            padding: 24px;
+            display: flex;
+            gap: 24px;
+            overflow-y: auto;
+        }
+        .response-card {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            --md-card-padding: 16px;
+        }
+        .response-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+         .response-card-header h2 {
+            font-size: 1.2rem;
+            margin: 0;
+        }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .response-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+        .input-area {
+            padding: 16px 24px;
+            border-top: 1px solid var(--md-sys-color-outline-variant);
+            background-color: var(--md-sys-color-surface);
+        }
+        form {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+        md-outlined-text-field {
+            flex-grow: 1;
+        }
+        md-linear-progress {
+            margin-bottom: 8px;
+            display: none; /* Hidden by default */
+        }
+        .response-content pre {
+            background-color: var(--md-sys-color-surface-container);
+            border-radius: 8px;
+            padding: 12px;
+            overflow-x: auto;
+            white-space: pre;
+        }
+        .response-content code {
+            font-family: 'Roboto Mono', monospace;
+            background-color: var(--md-sys-color-surface-container-highest);
+            border-radius: 4px;
+            padding: 2px 4px;
+        }
+        .response-content pre code {
+            background-color: transparent;
+            padding: 0;
+            border-radius: 0;
+        }
+        .model-selector {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+                padding: 12px;
+            }
+            .header h1 {
+                font-size: 1.2rem;
+            }
+            .input-area {
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+<body class="md-body-medium">
+
+    <header class="header">
+        <span class="material-symbols-outlined">chat</span>
+        <h1 class="md-typescale-title-large">Multi-LLM Chat</h1>
+        <div style="flex-grow: 1;"></div>
+        <a href="/history" title="View History" style="text-decoration: none;">
+            <md-icon-button>
+                <span class="material-symbols-outlined">history</span>
+            </md-icon-button>
+        </a>
+    </header>
+
+    <div class="model-selector">
+        <md-filter-chip label="GPT-4" selected data-model-id="openai"></md-filter-chip>
+        <md-filter-chip label="Claude 3 Sonnet" selected data-model-id="anthropic"></md-filter-chip>
+        <md-filter-chip label="Gemini Pro" selected data-model-id="gemini"></md-filter-chip>
+    </div>
+
+    <main class="main-content">
+        <md-outlined-card class="response-card" id="card-openai">
+            <div class="response-card-header">
+                <h2 class="md-typescale-title-medium">GPT-4</h2>
+                <div class="header-actions">
+                    <md-icon-button id="retry-openai" style="display: none;" title="Retry">
+                        <span class="material-symbols-outlined">replay</span>
+                    </md-icon-button>
+                    <md-chip-set>
+                        <md-assist-chip id="status-openai" label="Idle"></md-assist-chip>
+                    </md-chip-set>
+                </div>
+            </div>
+            <md-linear-progress indeterminate id="progress-openai"></md-linear-progress>
+            <div class="response-content" id="response-openai"></div>
+        </md-outlined-card>
+
+        <md-outlined-card class="response-card" id="card-anthropic">
+            <div class="response-card-header">
+                <h2 class="md-typescale-title-medium">Claude 3 Sonnet</h2>
+                <div class="header-actions">
+                    <md-icon-button id="retry-anthropic" style="display: none;" title="Retry">
+                        <span class="material-symbols-outlined">replay</span>
+                    </md-icon-button>
+                    <md-chip-set>
+                        <md-assist-chip id="status-anthropic" label="Idle"></md-assist-chip>
+                    </md-chip-set>
+                </div>
+            </div>
+            <md-linear-progress indeterminate id="progress-anthropic"></md-linear-progress>
+            <div class="response-content" id="response-anthropic"></div>
+        </md-outlined-card>
+
+        <md-outlined-card class="response-card" id="card-gemini">
+            <div class="response-card-header">
+                <h2 class="md-typescale-title-medium">Gemini Pro</h2>
+                <div class="header-actions">
+                    <md-icon-button id="retry-gemini" style="display: none;" title="Retry">
+                        <span class="material-symbols-outlined">replay</span>
+                    </md-icon-button>
+                    <md-chip-set>
+                        <md-assist-chip id="status-gemini" label="Idle"></md-assist-chip>
+                    </md-chip-set>
+                </div>
+            </div>
+            <md-linear-progress indeterminate id="progress-gemini"></md-linear-progress>
+            <div class="response-content" id="response-gemini"></div>
+        </md-outlined-card>
+    </main>
+
+    <div class="input-area">
+        <form id="chat-form">
+            <md-outlined-text-field
+                label="Tapez votre question..."
+                name="prompt"
+                type="textarea"
+                rows="1">
+            </md-outlined-text-field>
+            <md-filled-button type="submit">
+                <span class="material-symbols-outlined">send</span>
+                Envoyer
+            </md-filled-button>
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('chat-form');
+            const promptInput = form.querySelector('md-outlined-text-field');
+            const submitButton = form.querySelector('md-filled-button');
+            let currentPrompt = '';
+
+            const modelMap = {
+                'GPT-4': 'openai',
+                'Claude 3 Sonnet': 'anthropic',
+                'Gemini Pro': 'gemini'
+            };
+            const allModelIds = Object.keys(modelMap).map(key => modelMap[key]);
+
+            let ws;
+
+            function connect() {
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws/chat`);
+
+                ws.onopen = () => {
+                    console.log('WebSocket connection established');
+                    submitButton.disabled = false;
+                };
+
+                ws.onmessage = (event) => {
+                    const llmResponse = JSON.parse(event.data);
+                    const modelId = modelMap[llmResponse.modelName];
+
+                    if (modelId) {
+                        const responseEl = document.getElementById(`response-${modelId}`);
+                        const statusEl = document.getElementById(`status-${modelId}`);
+                        const progressEl = document.getElementById(`progress-${modelId}`);
+                        const cardEl = document.getElementById(`card-${modelId}`);
+                        const retryBtn = document.getElementById(`retry-${modelId}`);
+
+                        progressEl.style.display = 'none';
+
+                        if (llmResponse.success) {
+                            typeOutResponse(responseEl, llmResponse.content, () => {
+                                statusEl.label = 'Complete';
+                                cardEl.style.borderColor = 'var(--md-sys-color-primary)';
+                            });
+                        } else {
+                            responseEl.innerHTML = `Error: ${llmResponse.errorMessage}`;
+                            statusEl.label = 'Error';
+                            cardEl.style.borderColor = 'var(--md-sys-color-error)';
+                            retryBtn.style.display = 'block';
+                        }
+                    }
+                };
+
+                ws.onclose = () => {
+                    console.log('WebSocket connection closed. Reconnecting...');
+                    submitButton.disabled = true;
+                    setTimeout(connect, 1000); // Attempt to reconnect after 1 second
+                };
+
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    ws.close();
+                };
+            }
+
+            function typeOutResponse(element, markdownText, onComplete) {
+                let i = 0;
+                const speed = 10; // ms per character
+                let content = '';
+                element.innerHTML = ''; // Clear previous content
+
+                function type() {
+                    if (i < markdownText.length) {
+                        content += markdownText.charAt(i);
+                        // Avoid parsing markdown on every single character for performance.
+                        // Parse every few characters or when a newline is added.
+                        if (i % 5 === 0 || markdownText.charAt(i) === '\n') {
+                            const dirtyHtml = marked.parse(content + '▌'); // Add a cursor
+                            element.innerHTML = DOMPurify.sanitize(dirtyHtml);
+                        }
+                        i++;
+                        setTimeout(type, speed);
+                    } else {
+                        // Final parse without cursor
+                        const dirtyHtml = marked.parse(content);
+                        element.innerHTML = DOMPurify.sanitize(dirtyHtml);
+                        if (onComplete) {
+                            onComplete();
+                        }
+                    }
+                }
+                type();
+            }
+
+            connect(); // Initial connection
+
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const prompt = promptInput.value.trim();
+                if (!prompt || ws.readyState !== WebSocket.OPEN) return;
+
+                currentPrompt = prompt;
+                const selectedChips = document.querySelectorAll('.model-selector md-filter-chip[selected]');
+                const selectedModels = Array.from(selectedChips).map(chip => chip.dataset.modelId);
+
+                if (selectedModels.length === 0) { return; }
+
+                // Reset UI for selected models
+                selectedModels.forEach(id => {
+                    document.getElementById(`card-${id}`).style.display = 'flex';
+                    document.getElementById(`response-${id}`).innerHTML = '';
+                    document.getElementById(`status-${id}`).label = 'Typing...';
+                    document.getElementById(`progress-${id}`).style.display = 'block';
+                    document.getElementById(`retry-${id}`).style.display = 'none';
+                });
+                // Hide unselected models
+                allModelIds.filter(id => !selectedModels.includes(id)).forEach(id => {
+                    document.getElementById(`card-${id}`).style.display = 'none';
+                });
+
+                const request = { prompt, models: selectedModels };
+                ws.send(JSON.stringify(request));
+            });
+
+            // Note: Retry logic needs to be adapted for WebSockets.
+            // For now, it will re-trigger the main prompt submission for the specific model.
+            allModelIds.forEach(id => {
+                document.getElementById(`retry-${id}`).addEventListener('click', () => {
+                     if (!currentPrompt || ws.readyState !== WebSocket.OPEN) return;
+
+                     // Reset UI for the specific card
+                    document.getElementById(`card-${id}`).style.display = 'flex';
+                    document.getElementById(`response-${id}`).innerHTML = '';
+                    document.getElementById(`status-${id}`).label = 'Retrying...';
+                    document.getElementById(`progress-${id}`).style.display = 'block';
+                    document.getElementById(`retry-${id}`).style.display = 'none';
+
+                     const request = { prompt: currentPrompt, models: [id] };
+                     ws.send(JSON.stringify(request));
+                });
+            });
+        });
+    </script>
+
+</body>
+</html>
