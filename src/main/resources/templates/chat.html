@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-LLM Chat</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" rel="stylesheet">
+
+    <!-- Material Web Components -->
+    <script type="importmap">
+    {
+      "imports": {
+        "@material/web/": "https://esm.run/@material/web/"
+      }
+    }
+    </script>
+    <script type="module">
+      import '@material/web/all.js';
+      import {styles as typescaleStyles} from '@material/web/typography/md-typescale-styles.js';
+      import {styles as themeStyles} from '@material/web/theme/theme-styles.js';
+
+      document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
+      document.adoptedStyleSheets.push(themeStyles.styleSheet);
+    </script>
+
+    <style>
+        :root {
+            --md-sys-color-primary: #4a55a2;
+            --md-sys-color-on-primary: #ffffff;
+            --md-sys-color-primary-container: #e0e0ff;
+            --md-sys-color-on-primary-container: #000c61;
+            --md-sys-color-secondary: #5b5d72;
+            --md-sys-color-on-secondary: #ffffff;
+            --md-sys-color-secondary-container: #e0e0f9;
+            --md-sys-color-on-secondary-container: #181a2c;
+            --md-sys-color-background: #fefbff;
+            --md-sys-color-on-background: #1b1b21;
+            --md-sys-color-surface: #fefbff;
+            --md-sys-color-on-surface: #1b1b21;
+            --md-sys-color-surface-variant: #e4e1ec;
+            --md-sys-color-on-surface-variant: #46464f;
+        }
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--md-sys-color-background);
+            color: var(--md-sys-color-on-background);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            padding: 12px 24px;
+            background-color: var(--md-sys-color-surface-container-low);
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+        }
+        .header h1 {
+             font-size: 1.4rem;
+             font-weight: 500;
+             margin-left: 16px;
+        }
+        .main-content {
+            flex-grow: 1;
+            padding: 24px;
+            display: flex;
+            gap: 24px;
+            overflow-y: auto;
+        }
+        .response-card {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            --md-card-padding: 16px;
+        }
+        .response-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+         .response-card-header h2 {
+            font-size: 1.2rem;
+            margin: 0;
+        }
+        .response-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            white-space: pre-wrap; /* To respect newlines in responses */
+            padding-right: 8px;
+        }
+        .input-area {
+            padding: 16px 24px;
+            border-top: 1px solid var(--md-sys-color-outline-variant);
+            background-color: var(--md-sys-color-surface);
+        }
+        form {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+        md-outlined-text-field {
+            flex-grow: 1;
+        }
+        md-linear-progress {
+            margin-bottom: 8px;
+            display: none; /* Hidden by default */
+        }
+    </style>
+</head>
+<body class="md-body-medium">
+
+    <header class="header">
+        <span class="material-symbols-outlined">chat</span>
+        <h1 class="md-typescale-title-large">Multi-LLM Chat</h1>
+        <div style="flex-grow: 1;"></div> <!-- Spacer -->
+        <a href="/history" title="View History" style="text-decoration: none;">
+            <md-icon-button>
+                <span class="material-symbols-outlined">history</span>
+            </md-icon-button>
+        </a>
+    </header>
+
+    <main class="main-content">
+        <!-- GPT-4 Panel -->
+        <md-outlined-card class="response-card" id="card-openai">
+            <div class="response-card-header">
+                <h2 class="md-typescale-title-medium">GPT-4</h2>
+                <md-chip-set>
+                    <md-assist-chip id="status-openai" label="Idle"></md-assist-chip>
+                </md-chip-set>
+            </div>
+            <md-linear-progress indeterminate id="progress-openai"></md-linear-progress>
+            <div class="response-content" id="response-openai"></div>
+        </md-outlined-card>
+
+        <!-- Claude Panel -->
+        <md-outlined-card class="response-card" id="card-anthropic">
+            <div class="response-card-header">
+                <h2 class="md-typescale-title-medium">Claude 3 Sonnet</h2>
+                <md-chip-set>
+                    <md-assist-chip id="status-anthropic" label="Idle"></md-assist-chip>
+                </md-chip-set>
+            </div>
+            <md-linear-progress indeterminate id="progress-anthropic"></md-linear-progress>
+            <div class="response-content" id="response-anthropic"></div>
+        </md-outlined-card>
+
+        <!-- Gemini Panel -->
+        <md-outlined-card class="response-card" id="card-gemini">
+            <div class="response-card-header">
+                <h2 class="md-typescale-title-medium">Gemini Pro</h2>
+                <md-chip-set>
+                    <md-assist-chip id="status-gemini" label="Idle"></md-assist-chip>
+                </md-chip-set>
+            </div>
+            <md-linear-progress indeterminate id="progress-gemini"></md-linear-progress>
+            <div class="response-content" id="response-gemini"></div>
+        </md-outlined-card>
+    </main>
+
+    <div class="input-area">
+        <form id="chat-form">
+            <md-outlined-text-field
+                label="Tapez votre question..."
+                name="prompt"
+                type="textarea"
+                rows="1">
+            </md-outlined-text-field>
+            <md-filled-button type="submit">
+                <span class="material-symbols-outlined">send</span>
+                Envoyer
+            </md-filled-button>
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('chat-form');
+            const promptInput = form.querySelector('md-outlined-text-field');
+
+            const modelMap = {
+                'GPT-4': 'openai',
+                'Claude 3 Sonnet': 'anthropic',
+                'Gemini Pro': 'gemini'
+            };
+
+            const allModelIds = Object.values(modelMap);
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const prompt = promptInput.value.trim();
+                if (!prompt) return;
+
+                // Reset UI for all models
+                allModelIds.forEach(id => {
+                    document.getElementById(`response-${id}`).textContent = '';
+                    document.getElementById(`status-${id}`).label = 'Typing...';
+                    document.getElementById(`progress-${id}`).style.display = 'block';
+                    document.getElementById(`card-${id}`).style.borderColor = '';
+                });
+
+
+                try {
+                    const response = await fetch('/api/chat/compare', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({ prompt: prompt, models: [] }) // Empty array means all models
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+
+                    // Clear all loading states first
+                     allModelIds.forEach(id => {
+                        document.getElementById(`progress-${id}`).style.display = 'none';
+                     });
+
+
+                    result.responses.forEach(llmResponse => {
+                        const modelId = modelMap[llmResponse.modelName];
+                        if (modelId) {
+                            const responseEl = document.getElementById(`response-${modelId}`);
+                            const statusEl = document.getElementById(`status-${modelId}`);
+                            const cardEl = document.getElementById(`card-${modelId}`);
+
+                            if (llmResponse.success) {
+                                responseEl.textContent = llmResponse.content;
+                                statusEl.label = 'Complete';
+                                cardEl.style.borderColor = 'var(--md-sys-color-primary)';
+                            } else {
+                                responseEl.textContent = `Error: ${llmResponse.errorMessage}`;
+                                statusEl.label = 'Error';
+                                cardEl.style.borderColor = 'var(--md-sys-color-error)';
+                            }
+                        }
+                    });
+
+                } catch (error) {
+                    console.error('Error fetching chat responses:', error);
+                    allModelIds.forEach(id => {
+                        document.getElementById(`progress-${id}`).style.display = 'none';
+                        document.getElementById(`status-${id}`).label = 'Error';
+                        document.getElementById(`card-${id}`).style.borderColor = 'var(--md-sys-color-error)';
+                        document.getElementById(`response-${id}`).textContent = 'Failed to get a response from the server.';
+                    });
+                }
+            });
+        });
+    </script>
+
+</body>
+</html>
