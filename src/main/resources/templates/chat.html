@@ -248,6 +248,9 @@
             <div class="response-card-header">
                 <h2 class="md-typescale-title-medium">GPT-4</h2>
                 <div class="header-actions">
+                    <md-icon-button class="copy-button" data-model-id="openai" title="Copy">
+                        <span class="material-symbols-outlined">content_copy</span>
+                    </md-icon-button>
                     <md-icon-button id="retry-openai" style="display: none;" title="Retry">
                         <span class="material-symbols-outlined">replay</span>
                     </md-icon-button>
@@ -264,6 +267,9 @@
             <div class="response-card-header">
                 <h2 class="md-typescale-title-medium">Claude 3 Sonnet</h2>
                 <div class="header-actions">
+                    <md-icon-button class="copy-button" data-model-id="anthropic" title="Copy">
+                        <span class="material-symbols-outlined">content_copy</span>
+                    </md-icon-button>
                     <md-icon-button id="retry-anthropic" style="display: none;" title="Retry">
                         <span class="material-symbols-outlined">replay</span>
                     </md-icon-button>
@@ -280,6 +286,9 @@
             <div class="response-card-header">
                 <h2 class="md-typescale-title-medium">Gemini Pro</h2>
                 <div class="header-actions">
+                    <md-icon-button class="copy-button" data-model-id="gemini" title="Copy">
+                        <span class="material-symbols-outlined">content_copy</span>
+                    </md-icon-button>
                     <md-icon-button id="retry-gemini" style="display: none;" title="Retry">
                         <span class="material-symbols-outlined">replay</span>
                     </md-icon-button>
@@ -450,6 +459,26 @@
             // -- Event Listeners & Initializers --
             settingsButton.addEventListener('click', () => settingsDialog.show());
             exportButton.addEventListener('click', exportToMarkdown);
+
+            document.querySelectorAll('.copy-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    const modelId = button.dataset.modelId;
+                    const textToCopy = lastResponses[modelId];
+
+                    if (textToCopy) {
+                        navigator.clipboard.writeText(textToCopy).then(() => {
+                            const icon = button.querySelector('span');
+                            icon.textContent = 'check';
+                            setTimeout(() => {
+                                icon.textContent = 'content_copy';
+                            }, 2000);
+                        }).catch(err => {
+                            console.error('Failed to copy text: ', err);
+                            alert('Failed to copy text.');
+                        });
+                    }
+                });
+            });
 
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme === 'dark') {
